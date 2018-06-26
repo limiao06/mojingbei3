@@ -2,4 +2,6 @@
 *.csv
 mojing
 .ipynb_checkpoints
+InferSent
+*.pyc
 
