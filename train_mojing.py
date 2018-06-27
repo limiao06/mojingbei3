@@ -18,7 +18,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 
-from data import get_data, get_test_batch, get_embeddings
+from data import get_data, get_batch, get_embeddings
 from mutils import get_optimizer
 from models import MoJingNet
 

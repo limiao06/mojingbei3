@@ -90,6 +90,8 @@ DATA
 questions_dict, train, dev, test = get_data(params.datapath)
 word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
+test = test.values
+
 mojing_net = torch.load(params.modelpath)
 print(mojing_net)
 
@@ -99,7 +101,6 @@ mojing_net.cuda()
 def inference():
     mojing_net.eval()
     results = []
-
     for i in tqdm(range(0, len(test), params.batch_size)):
         # prepare batch
 
@@ -109,8 +110,9 @@ def inference():
         q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
 
         # model forward
-        prob = mojing_net.predict_prob((q1_batch, q1_len), (q2_batch, q2_len))
-        results.extend(list(prob.reshape((-1))))
+        probs = mojing_net.predict_prob((q1_batch, q1_len), (q2_batch, q2_len))
+        probs = probs.data.cpu().numpy().reshape((-1))
+        results.extend(list(probs))
     return results
 
 results = inference()
