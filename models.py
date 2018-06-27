@@ -904,6 +904,8 @@ class MoJingNet(nn.Module):
                 nn.Linear(self.fc_dim, self.n_classes)
                 )
 
+        self.sigmoid = nn.Sigmoid()
+
     def forward(self, s1, s2):
         # s1 : (s1, s1_len)
         u = self.encoder(s1)
@@ -916,3 +918,8 @@ class MoJingNet(nn.Module):
     def encode(self, s1):
         emb = self.encoder(s1)
         return emb
+
+    def predict_prob(self, s1, s2):
+        logit = self.forward(s1, s2)
+        return self.sigmoid(logit)
+

@@ -123,6 +123,27 @@ def get_batch(questions_dict, batch, embeddings, random_flip=True):
 
     return label_batch, q1_batch, q1_len, q2_batch, q2_len
 
+def get_test_batch(questions_dict, batch, embeddings, random_flip=False):
+    # for test set
+    # batch is a np.array of [label, q1, q2]
+    batch_size = len(batch)
+    # random flip q1 and q2
+    if random_flip:
+        random_flag = np.random.randn(batch_size)
+        batch = np.array([[q1, q1] if f>0 else [q2, q1] for (q1, q2), f in zip(batch, random_flag)], dtype=object)
+
+    q1_keys_batch = batch[:,0]
+    q2_keys_batch = batch[:,1]
+
+    q1_sents = _get_sents(q1_keys_batch, questions_dict)
+    q2_sents = _get_sents(q2_keys_batch, questions_dict)
+
+    q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings)
+    q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings)
+
+    return q1_batch, q1_len, q2_batch, q2_len
+
+
 def _get_sents(sent_keys, questions_dict, feature="words"):
     sents = []
     for k in sent_keys:
