@@ -36,7 +36,7 @@ parser.add_argument("--outputmodelname", type=str, default='model.pickle')
 
 # training
 parser.add_argument("--n_epochs", type=int, default=20)
-parser.add_argument("--batch_size", type=int, default=64)
+parser.add_argument("--batch_size", type=int, default=512)
 parser.add_argument("--dpout_model", type=float, default=0., help="encoder dropout")
 parser.add_argument("--dpout_fc", type=float, default=0., help="classifier dropout")
 parser.add_argument("--nonlinear_fc", type=float, default=0, help="use nonlinearity in fc")
@@ -48,10 +48,10 @@ parser.add_argument("--max_norm", type=float, default=5., help="max norm (grad c
 
 # model
 parser.add_argument("--encoder_type", type=str, default='BLSTMEncoder', help="see list of encoders")
-parser.add_argument("--enc_lstm_dim", type=int, default=2048, help="encoder nhid dimension")
+parser.add_argument("--enc_lstm_dim", type=int, default=1024, help="encoder nhid dimension")
 parser.add_argument("--n_enc_layers", type=int, default=1, help="encoder num layers")
 parser.add_argument("--fc_dim", type=int, default=512, help="nhid of fc layers")
-#parser.add_argument("--n_classes", type=int, default=1, help="same or not")
+parser.add_argument("--n_classes", type=int, default=1, help="same or not")
 parser.add_argument("--pool_type", type=str, default='max', help="max or mean")
 
 # gpu
@@ -80,7 +80,7 @@ torch.cuda.manual_seed(params.seed)
 DATA
 """
 questions_dict, train, dev, test = get_data(params.datapath)
-word_vec = get_embedding(WORD_EMBEDDING_PATH)
+word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
 dev = dev.values
 
@@ -126,8 +126,9 @@ mojing_net = MoJingNet(config_mojing_model)
 print(mojing_net)
 
 # loss
-weight = torch.FloatTensor(params.n_classes).fill_(1)
-loss_fn = nn.CrossEntropyLoss(weight=weight)
+#weight = torch.FloatTensor(params.n_classes).fill_(1)
+#loss_fn = nn.CrossEntropyLoss(weight=weight)
+loss_fn = nn.BCEWithLogitsLoss()
 loss_fn.size_average = False
 
 # optimizer
@@ -179,10 +180,10 @@ def trainepoch(epoch):
         """
 
         label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
-            train_perm[stidx:stidx + params.batch_size], embeddings)
+            train_perm[stidx:stidx + params.batch_size], word_vec)
 
-        q1_batch, q2_batch = Variable(q1_batch.cuda()), Variable(q2_batch.cuda())
-        tgt_batch = Variable(torch.LongTensor(label_batch)).cuda()
+        q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
+        tgt_batch = Variable(torch.FloatTensor(label_batch)).cuda()
 
 
         k = q1_batch.size(1)  # actual batch size
@@ -196,7 +197,8 @@ def trainepoch(epoch):
 
         # loss
         loss = loss_fn(output, tgt_batch)
-        all_costs.append(loss.data[0])
+        #all_costs.append(loss.data[0])
+        all_costs.append(loss.data)
         words_count += (q1_batch.nelement() + q2_batch.nelement()) / params.word_emb_dim
 
         # backward
@@ -224,15 +226,15 @@ def trainepoch(epoch):
 
         if len(all_costs) == 100:
             logs.append('{0} ; loss {1} ; sentence/s {2} ; words/s {3} ; accuracy train : {4}'.format(
-                            stidx, round(np.mean(all_costs), 2),
+                            stidx, round(np.mean(all_costs), 4),
                             int(len(all_costs) * params.batch_size / (time.time() - last_time)),
                             int(words_count * 1.0 / (time.time() - last_time)),
-                            round(100.*correct/(stidx+k), 2)))
+                            round(100.*correct/(stidx+k), 4)))
             print(logs[-1])
             last_time = time.time()
             words_count = 0
             all_costs = []
-    train_acc = round(100 * correct/len(s1), 2)
+    train_acc = round(100 * correct/len(train), 4)
     print('results : epoch {0} ; mean accuracy train : {1}'
           .format(epoch, train_acc))
     return train_acc
@@ -249,10 +251,10 @@ def evaluate(epoch, final_eval=False):
         # prepare batch
 
         label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
-            dev[stidx:stidx + params.batch_size], embeddings)
+            dev[i:i + params.batch_size], word_vec)
 
-        q1_batch, q2_batch = Variable(q1_batch.cuda()), Variable(q2_batch.cuda())
-        tgt_batch = Variable(torch.LongTensor(label_batch)).cuda()
+        q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
+        tgt_batch = Variable(torch.FloatTensor(label_batch)).cuda()
 
         # model forward
         output = mojing_net((q1_batch, q1_len), (q2_batch, q2_len))
@@ -261,14 +263,14 @@ def evaluate(epoch, final_eval=False):
         correct += pred.long().eq(tgt_batch.data.long()).cpu().sum()
 
     # save model
-    eval_acc = round(100 * correct / len(s1), 2)
+    eval_acc = round(100 * correct / len(dev), 2)
     if final_eval:
-        print('finalgrep : accuracy {0} : {1}'.format(eval_type, eval_acc))
+        print('finalgrep : accuracy: {0}'.format(eval_acc))
     else:
-        print('togrep : results : epoch {0} ; mean accuracy {1} :\
-              {2}'.format(epoch, eval_type, eval_acc))
+        print('togrep : results : epoch {0} ; mean accuracy:\
+              {1}'.format(epoch, eval_acc))
 
-    if eval_type == 'valid' and epoch <= params.n_epochs:
+    if epoch <= params.n_epochs:
         if eval_acc > val_acc_best:
             print('saving model at epoch {0}'.format(epoch))
             if not os.path.exists(params.outputdir):

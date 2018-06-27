@@ -111,7 +111,7 @@ def get_batch(questions_dict, batch, embeddings, random_flip=True):
         random_flag = np.random.randn(batch_size)
         batch = np.array([[l, q1, q1] if f>0 else [l, q2, q1] for (l, q1, q2), f in zip(batch, random_flag)], dtype=object)
 
-    label_batch = batch[:,0]
+    label_batch = batch[:,0].astype(np.float32).reshape((-1,1))
     q1_keys_batch = batch[:,1]
     q2_keys_batch = batch[:,2]
 

@@ -35,7 +35,8 @@ class BLSTMEncoder(nn.Module):
 
     def is_cuda(self):
         # either all weights are on cpu or they are on gpu
-        return 'cuda' in str(type(self.enc_lstm.bias_hh_l0.data))
+        #return 'cuda' in str(type(self.enc_lstm.bias_hh_l0.data))
+        return True
 
     def forward(self, sent_tuple):
         # sent_len: [max_len, ..., min_len] (bsize)
@@ -869,7 +870,7 @@ Need add a module for mojing here!
 class MoJingNet(nn.Module):
     # only use word seqs
     def __init__(self, config):
-        super(MoJinfNet, self).__init__()
+        super(MoJingNet, self).__init__()
 
         # classifier
         self.nonlinear_fc = config['nonlinear_fc']
