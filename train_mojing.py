@@ -263,7 +263,7 @@ def evaluate(epoch, final_eval=False):
         correct += pred.long().eq(tgt_batch.data.long()).cpu().sum()
 
     # save model
-    eval_acc = round(100 * correct / len(dev), 2)
+    eval_acc = round(100 * correct / len(dev), 4)
     if final_eval:
         print('finalgrep : accuracy: {0}'.format(eval_acc))
     else:
@@ -308,8 +308,7 @@ del mojing_net
 mojing_net = torch.load(os.path.join(params.outputdir, params.outputmodelname))
 
 print('\nTEST : Epoch {0}'.format(epoch))
-evaluate(1e6, 'valid', True)
-evaluate(0, 'test', True)
+evaluate(1e6, True)
 
 # Save encoder instead of full model
 torch.save(mojing_net.encoder,
