@@ -250,7 +250,7 @@ def evaluate(epoch, final_eval=False):
         # prepare batch
 
         label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
-            dev[i:i + params.batch_size], word_vec)
+            dev[i:i + params.batch_size], word_vec, random_flip=False)
 
         q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
         tgt_batch = Variable(torch.FloatTensor(label_batch)).cuda()
@@ -299,7 +299,7 @@ epoch = 1
 
 while not stop_training and epoch <= params.n_epochs:
     train_acc = trainepoch(epoch)
-    eval_acc = evaluate(epoch, 'valid')
+    eval_acc = evaluate(epoch, False)
     epoch += 1
 
 # Run best model on test set.
