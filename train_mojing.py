@@ -191,7 +191,7 @@ def trainepoch(epoch):
         output = mojing_net((q1_batch, q1_len), (q2_batch, q2_len))
 
         pred = output.data > 0
-        correct += pred.long().eq(tgt_batch.data.long()).cpu().sum()
+        correct += pred.long().eq(tgt_batch.data.long()).cpu().sum().numpy()
         assert len(pred) == len(train_perm[stidx:stidx + params.batch_size])
 
         # loss
@@ -259,7 +259,7 @@ def evaluate(epoch, final_eval=False):
         output = mojing_net((q1_batch, q1_len), (q2_batch, q2_len))
 
         pred = output.data > 0
-        correct += pred.long().eq(tgt_batch.data.long()).cpu().sum()
+        correct += pred.long().eq(tgt_batch.data.long()).cpu().sum().numpy()
 
     # save model
     eval_acc = round(100 * correct / len(dev), 4)
