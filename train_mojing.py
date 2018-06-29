@@ -309,6 +309,6 @@ mojing_net = torch.load(os.path.join(params.outputdir, params.outputmodelname))
 print('\nTEST : Epoch {0}'.format(epoch))
 evaluate(1e6, True)
 
-# Save encoder instead of full model
-torch.save(mojing_net.encoder,
-           os.path.join(params.outputdir, params.outputmodelname + '.encoder'))
+## Save encoder instead of full model
+#torch.save(mojing_net.encoder,
+#           os.path.join(params.outputdir, params.outputmodelname + '.encoder'))
