@@ -929,7 +929,7 @@ class MoJingNet_e(nn.Module):
     # only use word seqs
     # contain embedding layers
     def __init__(self, config):
-        super(MoJingNet, self).__init__()
+        super(MoJingNet_e, self).__init__()
 
         # classifier
         self.nonlinear_fc = config['nonlinear_fc']
@@ -970,8 +970,8 @@ class MoJingNet_e(nn.Module):
 
     def forward(self, s1, s2):
         # s1 : (s1, s1_len)
-        u = self.encoder(s1)
-        v = self.encoder(s2)
+        u = self.encode(s1)
+        v = self.encode(s2)
 
         features = torch.cat((u, v, torch.abs(u-v), u*v), 1)
         output = self.classifier(features)

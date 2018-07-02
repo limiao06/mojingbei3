@@ -98,7 +98,6 @@ def get_data(data_path):
 
     return questions_dict, train, dev, test
 
-
 def get_word_vec(embeddings_path):
     vocab = []
     weight = []
@@ -145,12 +144,15 @@ def _get_sents_ids(sent_keys, questions_dict, vocab, feature="words"):
         sents.append(sent)
         sents_len.append(len(sent))
 
+    sents_len = np.array(sents_len)
     padding_id = len(vocab) - 1
     max_len = np.max(sents_len)
+    
+    sent_ids = []
 
     for i, sent in enumerate(sents):
-        sent = [vocab.get(w) for w in sent]
-        sent += [padding_id] * (max_len - sents_len[i])
-
-    return sents, sents_len
-    
+        sent_id = [vocab.get(w) for w in sent]
+        sent_id += [padding_id] * (max_len - sents_len[i])
+        sent_ids.append(sent_id)
+    sent_ids = np.transpose(np.array(sent_ids, dtype=np.int64))
+    return torch.LongTensor(sent_ids), sents_len

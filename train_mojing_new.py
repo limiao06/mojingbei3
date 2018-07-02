@@ -78,7 +78,6 @@ torch.cuda.manual_seed(params.seed)
 DATA
 """
 questions_dict, train, dev, test = get_data(params.datapath)
-word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
 vocab, weight = get_word_vec(WORD_EMBEDDING_PATH)
 
@@ -92,7 +91,7 @@ MODEL
 """
 # model config
 config_mojing_model = {
-    'n_words'        :  len(word_vec)          ,
+    'n_words'        :  len(vocab)          ,
     'word_emb_dim'   :  params.word_emb_dim   ,
     'enc_lstm_dim'   :  params.enc_lstm_dim   ,
     'n_enc_layers'   :  params.n_enc_layers   ,
