@@ -156,3 +156,20 @@ def _get_sents_ids(sent_keys, questions_dict, vocab, feature="words"):
         sent_ids.append(sent_id)
     sent_ids = np.transpose(np.array(sent_ids, dtype=np.int64))
     return torch.LongTensor(sent_ids), sents_len
+
+def get_test_batch_new(questions_dict, batch, vocab, random_flip=False):
+    # for test set
+    # batch is a np.array of [label, q1, q2]
+    batch_size = len(batch)
+    # random flip q1 and q2
+    if random_flip:
+        random_flag = np.random.randn(batch_size)
+        batch = np.array([[q1, q1] if f>0 else [q2, q1] for (q1, q2), f in zip(batch, random_flag)], dtype=object)
+
+    q1_keys_batch = batch[:,0]
+    q2_keys_batch = batch[:,1]
+
+    q1_batch, q1_len = _get_sents_ids(q1_keys_batch, questions_dict, vocab)
+    q2_batch, q2_len = _get_sents_ids(q2_keys_batch, questions_dict, vocab)
+
+    return q1_batch, q1_len, q2_batch, q2_len
