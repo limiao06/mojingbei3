@@ -890,10 +890,10 @@ class MoJingNet(nn.Module):
             self.classifier = nn.Sequential(
                 nn.Dropout(p=self.dpout_fc),
                 nn.Linear(self.inputdim, self.fc_dim),
-                nn.Tanh(),
+                nn.ReLU(), #nn.Tanh(),
                 nn.Dropout(p=self.dpout_fc),
                 nn.Linear(self.fc_dim, self.fc_dim),
-                nn.Tanh(),
+                nn.ReLU(), #nn.Tanh(),
                 nn.Dropout(p=self.dpout_fc),
                 nn.Linear(self.fc_dim, self.n_classes),
                 )

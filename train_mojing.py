@@ -29,9 +29,7 @@ WORD_EMBEDDING_PATH = "mojing/word_embed.txt"
 parser = argparse.ArgumentParser(description='Mojing training')
 # paths
 parser.add_argument("--datapath", type=str, default='mojing/', help="mojing data path")
-parser.add_argument("--outputdir", type=str, default='savedir/', help="Output directory")
-parser.add_argument("--outputmodelname", type=str, default='model.pickle')
-
+parser.add_argument("--save_path", type=str, default='savedir/model.pickle')
 
 # training
 parser.add_argument("--n_epochs", type=int, default=20)
@@ -272,10 +270,7 @@ def evaluate(epoch, final_eval=False):
     if epoch <= params.n_epochs:
         if eval_acc > val_acc_best:
             print('saving model at epoch {0}'.format(epoch))
-            if not os.path.exists(params.outputdir):
-                os.makedirs(params.outputdir)
-            torch.save(mojing_net, os.path.join(params.outputdir,
-                       params.outputmodelname))
+            torch.save(mojing_net, params.save_path)
             val_acc_best = eval_acc
         else:
             if 'sgd' in params.optimizer:
@@ -304,7 +299,7 @@ while not stop_training and epoch <= params.n_epochs:
 
 # Run best model on test set.
 del mojing_net
-mojing_net = torch.load(os.path.join(params.outputdir, params.outputmodelname))
+mojing_net = torch.load(params.save_path)
 
 print('\nTEST : Epoch {0}'.format(epoch))
 evaluate(1e6, True)

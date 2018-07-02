@@ -5,3 +5,6 @@ mojing
 InferSent
 *.pyc
 savedir
+*.txt
+*.log
+
