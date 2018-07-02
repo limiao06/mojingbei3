@@ -10,88 +10,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-"""
-def get_batch(batch, word_vec):
-    # sent in batch in decreasing order of lengths (bsize, max_len, word_dim)
-    lengths = np.array([len(x) for x in batch])
-    max_len = np.max(lengths)
-    embed = np.zeros((max_len, len(batch), 300))
-
-    for i in range(len(batch)):
-        for j in range(len(batch[i])):
-            embed[j, i, :] = word_vec[batch[i][j]]
-
-    return torch.from_numpy(embed).float(), lengths
-
-
-def get_word_dict(sentences):
-    # create vocab of words
-    word_dict = {}
-    for sent in sentences:
-        for word in sent.split():
-            if word not in word_dict:
-                word_dict[word] = ''
-    word_dict['<s>'] = ''
-    word_dict['</s>'] = ''
-    word_dict['<p>'] = ''
-    return word_dict
-
-
-def get_glove(word_dict, glove_path):
-    # create word_vec with glove vectors
-    word_vec = {}
-    with open(glove_path) as f:
-        for line in f:
-            word, vec = line.split(' ', 1)
-            if word in word_dict:
-                word_vec[word] = np.array(list(map(float, vec.split())))
-    print('Found {0}(/{1}) words with glove vectors'.format(
-                len(word_vec), len(word_dict)))
-    return word_vec
-
-
-def build_vocab(sentences, glove_path):
-    word_dict = get_word_dict(sentences)
-    word_vec = get_glove(word_dict, glove_path)
-    print('Vocab size : {0}'.format(len(word_vec)))
-    return word_vec
-
-
-def get_nli(data_path):
-    s1 = {}
-    s2 = {}
-    target = {}
-
-    dico_label = {'entailment': 0,  'neutral': 1, 'contradiction': 2}
-
-    for data_type in ['train', 'dev', 'test']:
-        s1[data_type], s2[data_type], target[data_type] = {}, {}, {}
-        s1[data_type]['path'] = os.path.join(data_path, 's1.' + data_type)
-        s2[data_type]['path'] = os.path.join(data_path, 's2.' + data_type)
-        target[data_type]['path'] = os.path.join(data_path,
-                                                 'labels.' + data_type)
-
-        s1[data_type]['sent'] = [line.rstrip() for line in
-                                 open(s1[data_type]['path'], 'r')]
-        s2[data_type]['sent'] = [line.rstrip() for line in
-                                 open(s2[data_type]['path'], 'r')]
-        target[data_type]['data'] = np.array([dico_label[line.rstrip('\n')]
-                for line in open(target[data_type]['path'], 'r')])
-
-        assert len(s1[data_type]['sent']) == len(s2[data_type]['sent']) == \
-            len(target[data_type]['data'])
-
-        print('** {0} DATA : Found {1} pairs of {2} sentences.'.format(
-                data_type.upper(), len(s1[data_type]['sent']), data_type))
-
-    train = {'s1': s1['train']['sent'], 's2': s2['train']['sent'],
-             'label': target['train']['data']}
-    dev = {'s1': s1['dev']['sent'], 's2': s2['dev']['sent'],
-           'label': target['dev']['data']}
-    test = {'s1': s1['test']['sent'], 's2': s2['test']['sent'],
-            'label': target['test']['data']}
-    return train, dev, test
-"""
 
 def get_embeddings(embeddings_path):
     embeddings = {}
@@ -179,4 +97,60 @@ def get_data(data_path):
         questions_dict[q] = {"words": words, "chars": chars}
 
     return questions_dict, train, dev, test
+
+
+def get_word_vec(embeddings_path):
+    vocab = []
+    weight = []
+    with open(embeddings_path) as f:
+        for line in f:
+            word, vec = line.split(' ', 1)
+            vocab.append(word)
+            weight.append(np.array(list(map(float, vec.split()))))
+    print('Found {0} words with embeddingss'.format(
+                len(vocab)))
+    vocab = dict([(w,i) for (i,w) in enumerate(vocab)])
+    weight = np.array(weight)
+
+    embed_dim = weight.shape[1]
+    # add a padding symbol
+    vocab['<p>'] = len(vocab)
+    weight = np.append(weight, np.zeros((1, embed_dim)), axis=0)
+    return vocab, weight
+
+def get_batch_new(questions_dict, batch, vocab, random_flip=True):
+    # batch is a np.array of [label, q1, q2]
+    # return seq ids, not embeddings
+    # not finished
+    batch_size = len(batch)
+    # random flip q1 and q2
+    if random_flip:
+        random_flag = np.random.randn(batch_size)
+        batch = np.array([[l, q1, q1] if f>0 else [l, q2, q1] for (l, q1, q2), f in zip(batch, random_flag)], dtype=object)
+
+    label_batch = batch[:,0].astype(np.float32).reshape((-1,1))
+    q1_keys_batch = batch[:,1]
+    q2_keys_batch = batch[:,2]
+
+    q1_batch, q1_len = _get_sents_ids(q1_keys_batch, questions_dict, vocab)
+    q2_batch, q2_len = _get_sents_ids(q2_keys_batch, questions_dict, vocab)
+
+    return label_batch, q1_batch, q1_len, q2_batch, q2_len
+
+def _get_sents_ids(sent_keys, questions_dict, vocab, feature="words"):
+    sents = []
+    sents_len = []
+    for k in sent_keys:
+        sent = questions_dict[k][feature].split(" ")
+        sents.append(sent)
+        sents_len.append(len(sent))
+
+    padding_id = len(vocab) - 1
+    max_len = np.max(sents_len)
+
+    for i, sent in enumerate(sents):
+        sent = [vocab.get(w) for w in sent]
+        sent += [padding_id] * (max_len - sents_len[i])
+
+    return sents, sents_len
     
