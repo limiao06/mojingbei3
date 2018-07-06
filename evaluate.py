@@ -40,6 +40,8 @@ def main():
     parser.add_argument("--modelpath", type=str, default='savedir/model.pickle', help="inference model path")
     parser.add_argument("--batch_size", type=int, default=512)
 
+    parser.add_argument("--feature", type=str, default='words', help="words or chars")
+
     # gpu
     parser.add_argument("--gpu_id", type=int, default=0, help="GPU ID")
     parser.add_argument("--seed", type=int, default=1234, help="seed")
@@ -78,7 +80,7 @@ def main():
         # prepare batch
 
         label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
-            dev[i:i + params.batch_size], word_vec, random_flip=False)
+            dev[i:i + params.batch_size], word_vec, random_flip=False, feature=params.feature)
 
         q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
         tgt_batch = Variable(torch.FloatTensor(label_batch)).cuda()

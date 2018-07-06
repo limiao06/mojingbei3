@@ -21,7 +21,7 @@ def get_embeddings(embeddings_path):
                 len(embeddings)))
     return embeddings
 
-def get_batch(questions_dict, batch, embeddings, random_flip=True):
+def get_batch(questions_dict, batch, embeddings, random_flip=True, feature="words"):
     # batch is a np.array of [label, q1, q2]
     batch_size = len(batch)
     # random flip q1 and q2
@@ -33,15 +33,15 @@ def get_batch(questions_dict, batch, embeddings, random_flip=True):
     q1_keys_batch = batch[:,1]
     q2_keys_batch = batch[:,2]
 
-    q1_sents = _get_sents(q1_keys_batch, questions_dict)
-    q2_sents = _get_sents(q2_keys_batch, questions_dict)
+    q1_sents = _get_sents(q1_keys_batch, questions_dict, feature)
+    q2_sents = _get_sents(q2_keys_batch, questions_dict, feature)
 
     q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings)
     q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings)
 
     return label_batch, q1_batch, q1_len, q2_batch, q2_len
 
-def get_test_batch(questions_dict, batch, embeddings, random_flip=False):
+def get_test_batch(questions_dict, batch, embeddings, random_flip=False, feature="words"):
     # for test set
     # batch is a np.array of [label, q1, q2]
     batch_size = len(batch)
@@ -53,8 +53,8 @@ def get_test_batch(questions_dict, batch, embeddings, random_flip=False):
     q1_keys_batch = batch[:,0]
     q2_keys_batch = batch[:,1]
 
-    q1_sents = _get_sents(q1_keys_batch, questions_dict)
-    q2_sents = _get_sents(q2_keys_batch, questions_dict)
+    q1_sents = _get_sents(q1_keys_batch, questions_dict, feature)
+    q2_sents = _get_sents(q2_keys_batch, questions_dict, feature)
 
     q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings)
     q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings)
