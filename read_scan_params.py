@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import argparse
+import pandas as pd
 
 
 def main():
@@ -22,6 +23,10 @@ def main():
 
         config_values = []
         tokens = config.split(",")
+        if len(tokens)!= 3:
+            print config
+            break
+
         for t in tokens:
             config_values.append(float(t.split(":")[1]))
 
@@ -32,7 +37,7 @@ def main():
 
 
     df = pd.DataFrame(data=results, columns=["dpout_fc", "enc_lstm_dim", "fc_dim", "score"])
-    df.to_csv(args.output)
+    df.to_csv(params.output)
 
 if __name__ == '__main__':
     main()
