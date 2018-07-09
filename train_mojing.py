@@ -23,8 +23,6 @@ from mutils import get_optimizer
 from models import MoJingNet
 
 
-WORD_EMBEDDING_PATH = "mojing/word_embed.txt"
-
 
 parser = argparse.ArgumentParser(description='Mojing training')
 # paths
@@ -67,6 +65,12 @@ torch.cuda.set_device(params.gpu_id)
 print('\ntogrep : {0}\n'.format(sys.argv[1:]))
 print(params)
 
+if params.feature == "words":
+    WORD_EMBEDDING_PATH = "mojing/word_embed.txt"
+elif params.feature == "chars":
+    WORD_EMBEDDING_PATH = "mojing/char_embed.txt"
+else:
+    raise Exception("Unknown feature: %s" %(params.feature))
 
 """
 SEED

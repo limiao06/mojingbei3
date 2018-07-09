@@ -30,9 +30,6 @@ def make_submission(predict_prob, output):
     file.close()
 
 
-WORD_EMBEDDING_PATH = "mojing/word_embed.txt"
-
-
 def main():
     parser = argparse.ArgumentParser(description='Mojing inference')
     # paths
@@ -68,6 +65,13 @@ def main():
     """
     DATA
     """
+    if params.feature == "words":
+        WORD_EMBEDDING_PATH = "mojing/word_embed.txt"
+    elif params.feature == "chars":
+        WORD_EMBEDDING_PATH = "mojing/char_embed.txt"
+    else:
+        raise Exception("Unknown feature: %s" %(params.feature))
+
     questions_dict, train, dev, test = get_data(params.datapath)
     word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
