@@ -31,21 +31,21 @@ parser.add_argument("--save_path", type=str, default='savedir/model.pickle')
 
 # training
 parser.add_argument("--n_epochs", type=int, default=20)
-parser.add_argument("--batch_size", type=int, default=512)
+parser.add_argument("--batch_size", type=int, default=1024)
 parser.add_argument("--dpout_model", type=float, default=0., help="encoder dropout")
-parser.add_argument("--dpout_fc", type=float, default=0., help="classifier dropout")
+parser.add_argument("--dpout_fc", type=float, default=0.5, help="classifier dropout")
 parser.add_argument("--nonlinear_fc", type=float, default=0, help="use nonlinearity in fc")
-parser.add_argument("--optimizer", type=str, default="sgd,lr=0.1", help="adam or sgd,lr=0.1")
+parser.add_argument("--optimizer", type=str, default="adam", help="adam or sgd,lr=0.1")
 parser.add_argument("--lrshrink", type=float, default=5, help="shrink factor for sgd")
 parser.add_argument("--decay", type=float, default=0.99, help="lr decay")
 parser.add_argument("--minlr", type=float, default=1e-5, help="minimum lr")
 parser.add_argument("--max_norm", type=float, default=5., help="max norm (grad clipping)")
 
 # model
-parser.add_argument("--encoder_type", type=str, default='BLSTMEncoder', help="see list of encoders")
-parser.add_argument("--enc_lstm_dim", type=int, default=1024, help="encoder nhid dimension")
+parser.add_argument("--encoder_type", type=str, default='BLSTMprojEncoder', help="see list of encoders")
+parser.add_argument("--enc_lstm_dim", type=int, default=512, help="encoder nhid dimension")
 parser.add_argument("--n_enc_layers", type=int, default=1, help="encoder num layers")
-parser.add_argument("--fc_dim", type=int, default=512, help="nhid of fc layers")
+parser.add_argument("--fc_dim", type=int, default=256, help="nhid of fc layers")
 parser.add_argument("--n_classes", type=int, default=1, help="same or not")
 parser.add_argument("--pool_type", type=str, default='max', help="max or mean")
 

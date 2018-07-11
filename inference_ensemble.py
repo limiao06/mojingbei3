@@ -31,10 +31,10 @@ def make_submission(predict_prob, output):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Mojing inference')
+    parser = argparse.ArgumentParser(description='Mojing inference ensemble')
     # paths
     parser.add_argument("--datapath", type=str, default='mojing/', help="mojing data path")
-    parser.add_argument("--modelpath", type=str, default='savedir/model.pickle', help="inference model path")
+    parser.add_argument("--modeldir", type=str, default='', help="dir contains inference models")
     parser.add_argument("--output", type=str, default='output')
     parser.add_argument("--batch_size", type=int, default=1024)
     
@@ -77,14 +77,8 @@ def main():
 
     test = test.values
 
-    mojing_net = torch.load(params.modelpath)
-    print(mojing_net)
-
-    # cuda by default
-    mojing_net.cuda()
-
-    def inference():
-        mojing_net.eval()
+    def inference(model):
+        model.eval()
         results = []
         for i in tqdm(range(0, len(test), params.batch_size)):
             # prepare batch
@@ -95,12 +89,19 @@ def main():
             q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
 
             # model forward
-            probs = mojing_net.predict_prob((q1_batch, q1_len), (q2_batch, q2_len))
+            probs = model.predict_prob((q1_batch, q1_len), (q2_batch, q2_len))
             probs = probs.data.cpu().numpy().reshape((-1))
             results.extend(list(probs))
         return results
 
-    results = inference()
+    model_files = os.listdir(params.modeldir)
+
+    results = []
+    for f in model_files:
+        mojing_net = torch.load(os.path.join(params.modeldir, f))
+        results.append(inference(mojing_net))
+
+    results = np.mean(results, axis=0)
     make_submission(results, params.output)
 
 if __name__ == '__main__':
