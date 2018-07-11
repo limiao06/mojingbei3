@@ -66,10 +66,16 @@ def main():
     else:
         raise Exception("Unknown feature: %s" %(params.feature))
 
-    questions_dict, train, dev, test = get_data(params.datapath)
-    word_vec = get_embeddings(WORD_EMBEDDING_PATH)
+    questions_dict, train, test = get_data(params.datapath)
 
+    dev_size = 9000
+    dev = train.iloc[-dev_size:]
+    dev = dev.reset_index(drop=True)
+    train = train.iloc[0:-dev_size]
+    train = train.reset_index(drop=True)
     dev = dev.values
+
+    word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
     mojing_net = torch.load(params.modelpath)
     #print(mojing_net)

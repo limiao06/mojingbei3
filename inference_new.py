@@ -66,7 +66,7 @@ def main():
     """
     DATA
     """
-    questions_dict, train, dev, test = get_data(params.datapath)
+    questions_dict, train, test = get_data(params.datapath)
     vocab, weight = get_word_vec(WORD_EMBEDDING_PATH)
 
     test = test.values

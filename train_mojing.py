@@ -82,9 +82,14 @@ torch.cuda.manual_seed(params.seed)
 """
 DATA
 """
-questions_dict, train, dev, test = get_data(params.datapath)
+questions_dict, train, test = get_data(params.datapath)
 word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
+dev_size = 9000
+dev = train.iloc[-dev_size:]
+dev = dev.reset_index(drop=True)
+train = train.iloc[0:-dev_size]
+train = train.reset_index(drop=True)
 dev = dev.values
 
 """

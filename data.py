@@ -83,7 +83,7 @@ def _get_sents_embed(sents, embeddings, batch_first=False):
     #print embed.shape
     return torch.from_numpy(embed).float(), lengths
 
-def get_data(data_path):
+def get_data_bk(data_path):
     questions = pd.read_csv(os.path.join(data_path, "question.csv"))
     train = pd.read_csv(os.path.join(data_path, "train.csv"))
     test = pd.read_csv(os.path.join(data_path, "test.csv"))
@@ -99,6 +99,17 @@ def get_data(data_path):
         questions_dict[q] = {"words": words, "chars": chars}
 
     return questions_dict, train, dev, test
+
+def get_data(data_path):
+    questions = pd.read_csv(os.path.join(data_path, "question.csv"))
+    train = pd.read_csv(os.path.join(data_path, "train.csv"))
+    test = pd.read_csv(os.path.join(data_path, "test.csv"))
+
+    questions_dict = {}
+    for q, words, chars in list(questions.values):
+        questions_dict[q] = {"words": words, "chars": chars}
+
+    return questions_dict, train, test
 
 def get_word_vec(embeddings_path):
     vocab = []

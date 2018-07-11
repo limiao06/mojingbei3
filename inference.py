@@ -72,7 +72,7 @@ def main():
     else:
         raise Exception("Unknown feature: %s" %(params.feature))
 
-    questions_dict, train, dev, test = get_data(params.datapath)
+    questions_dict, train, test = get_data(params.datapath)
     word_vec = get_embeddings(WORD_EMBEDDING_PATH)
 
     test = test.values
