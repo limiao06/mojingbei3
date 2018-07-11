@@ -35,8 +35,8 @@ class DecAtt(nn.Module):
         It applies feedforward MLPs to combinations of parts of the two sentences,
         without any recurrent structure.
     """
-    def __init__(self, num_units, embedding_size, project_input=True,
-                 use_intra_attention=False, distance_biases=10, max_sentence_length=30):
+    def __init__(self, vocab_size, num_units, embedding_size, pretrained_emb, project_input=True,
+                 use_intra_attention=False, distance_biases=10, freeze_embed=False, max_sentence_length=30):
         """
         Create the model based on MLP networks.
         :param num_units: size of the networks
@@ -62,9 +62,12 @@ class DecAtt(nn.Module):
         self.pretrained_emb=pretrained_emb
 
         self.bias_embedding=nn.Embedding(max_sentence_length,1)
-        #self.word_embedding=nn.Embedding(vocab_size,embedding_size)
+        self.word_embedding=nn.Embedding(vocab_size,embedding_size)
+        #embed_weight = torch.FloatTensor(embed_weight)
+        #self.word_embedding = nn.Embedding.from_pretrained(embed_weight, freeze=freeze_embed)
         self.linear_layer_project = nn.Linear(embedding_size, num_units, bias=False)
-        self.linear_layer_intra = nn.Sequential(nn.Linear(num_units, num_units), nn.ReLU(), nn.Linear(num_units, num_units), nn.ReLU())
+        if self.intra_attention:
+            self.linear_layer_intra = nn.Sequential(nn.Linear(num_units, num_units), nn.ReLU(), nn.Linear(num_units, num_units), nn.ReLU())
 
         self.linear_layer_attend = nn.Sequential(nn.Dropout(p=0.2), nn.Linear(num_units, num_units), nn.ReLU(),
                                                  nn.Dropout(p=0.2), nn.Linear(num_units, num_units), nn.ReLU())
@@ -92,7 +95,8 @@ class DecAtt(nn.Module):
         self.linear_layer_aggregate[1].bias.data.fill_(0)
         self.linear_layer_aggregate[4].weight.data.normal_(0, 0.01)
         self.linear_layer_aggregate[4].bias.data.fill_(0)
-        #self.word_embedding.weight.data.copy_(torch.from_numpy(self.pretrained_emb))
+        self.word_embedding.weight.data.copy_(torch.from_numpy(self.pretrained_emb))
+        #self.word_embedding.weight.data.copy_(self.pretrained_emb)
 
     def attention_softmax3d(self,raw_attentions):
         reshaped_attentions = raw_attentions.view(-1, raw_attentions.size(2))
@@ -101,7 +105,7 @@ class DecAtt(nn.Module):
 
     def _transformation_input(self,embed_sent):
         #embed_sent=torch.matmul(embed_sent,self.linear_layer_project)
-        #embed_sent=self.word_embedding(embed_sent)
+        embed_sent=self.word_embedding(embed_sent)
         embed_sent=self.linear_layer_project(embed_sent)
         result=embed_sent
         #result, (state, _) = self.lstm_intra(embed_sent)
@@ -125,7 +129,7 @@ class DecAtt(nn.Module):
             result =torch.cat([embed_sent,attended],2)
         return result
 
-    def attend(self,sent1,sent2)# , lsize_list, rsize_list):
+    def attend(self,sent1,sent2):# , lsize_list, rsize_list):
         """
         Compute inter-sentence attention. This is step 1 (attend) in the paper
         :param sent1: tensor in shape (batch, time_steps, num_units),
@@ -180,7 +184,7 @@ class DecAtt(nn.Module):
         out=self.linear_layer_aggregate(torch.cat([v1_sum,v2_sum],1))
         return out
 
-    def forward(self,sent1, sent2) #, lsize_list, rsize_list):
+    def forward(self,sent1, sent2): #, lsize_list, rsize_list):
         sent1=self._transformation_input(sent1)
         sent2=self._transformation_input(sent2)
         alpha, beta = self.attend(sent1, sent2) #, lsize_list, rsize_list)

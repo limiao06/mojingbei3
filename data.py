@@ -21,7 +21,7 @@ def get_embeddings(embeddings_path):
                 len(embeddings)))
     return embeddings
 
-def get_batch(questions_dict, batch, embeddings, random_flip=True, feature="words"):
+def get_batch(questions_dict, batch, embeddings, random_flip=True, feature="words", batch_first=False):
     # batch is a np.array of [label, q1, q2]
     batch_size = len(batch)
     # random flip q1 and q2
@@ -36,12 +36,12 @@ def get_batch(questions_dict, batch, embeddings, random_flip=True, feature="word
     q1_sents = _get_sents(q1_keys_batch, questions_dict, feature)
     q2_sents = _get_sents(q2_keys_batch, questions_dict, feature)
 
-    q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings)
-    q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings)
+    q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings, batch_first)
+    q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings, batch_first)
 
     return label_batch, q1_batch, q1_len, q2_batch, q2_len
 
-def get_test_batch(questions_dict, batch, embeddings, random_flip=False, feature="words"):
+def get_test_batch(questions_dict, batch, embeddings, random_flip=False, feature="words", batch_first=False):
     # for test set
     # batch is a np.array of [label, q1, q2]
     batch_size = len(batch)
@@ -56,8 +56,8 @@ def get_test_batch(questions_dict, batch, embeddings, random_flip=False, feature
     q1_sents = _get_sents(q1_keys_batch, questions_dict, feature)
     q2_sents = _get_sents(q2_keys_batch, questions_dict, feature)
 
-    q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings)
-    q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings)
+    q1_batch, q1_len = _get_sents_embed(q1_sents, embeddings, batch_first)
+    q2_batch, q2_len = _get_sents_embed(q2_sents, embeddings, batch_first)
 
     return q1_batch, q1_len, q2_batch, q2_len
 
@@ -69,7 +69,7 @@ def _get_sents(sent_keys, questions_dict, feature="words"):
     return sents
 
 
-def _get_sents_embed(sents, embeddings):
+def _get_sents_embed(sents, embeddings, batch_first=False):
     # sent in batch in decreasing order of lengths (bsize, max_len, word_dim)
     lengths = np.array([len(x) for x in sents])
     max_len = np.max(lengths)
@@ -78,7 +78,9 @@ def _get_sents_embed(sents, embeddings):
     for i in range(len(sents)):
         for j in range(len(sents[i])):
             embed[j, i, :] = embeddings[sents[i][j]]
-
+    if batch_first:
+        embed = np.transpose(embed, (1,0,2))
+    #print embed.shape
     return torch.from_numpy(embed).float(), lengths
 
 def get_data(data_path):
@@ -117,7 +119,7 @@ def get_word_vec(embeddings_path):
     weight = np.append(weight, np.zeros((1, embed_dim)), axis=0)
     return vocab, weight
 
-def get_batch_new(questions_dict, batch, vocab, random_flip=True):
+def get_batch_new(questions_dict, batch, vocab, random_flip=True, batch_first=False):
     # batch is a np.array of [label, q1, q2]
     # return seq ids, not embeddings
     # not finished
@@ -131,12 +133,12 @@ def get_batch_new(questions_dict, batch, vocab, random_flip=True):
     q1_keys_batch = batch[:,1]
     q2_keys_batch = batch[:,2]
 
-    q1_batch, q1_len = _get_sents_ids(q1_keys_batch, questions_dict, vocab)
-    q2_batch, q2_len = _get_sents_ids(q2_keys_batch, questions_dict, vocab)
+    q1_batch, q1_len = _get_sents_ids(q1_keys_batch, questions_dict, vocab, batch_first=batch_first)
+    q2_batch, q2_len = _get_sents_ids(q2_keys_batch, questions_dict, vocab, batch_first=batch_first)
 
     return label_batch, q1_batch, q1_len, q2_batch, q2_len
 
-def _get_sents_ids(sent_keys, questions_dict, vocab, feature="words"):
+def _get_sents_ids(sent_keys, questions_dict, vocab, feature="words", batch_first=False):
     sents = []
     sents_len = []
     for k in sent_keys:
@@ -154,10 +156,13 @@ def _get_sents_ids(sent_keys, questions_dict, vocab, feature="words"):
         sent_id = [vocab.get(w) for w in sent]
         sent_id += [padding_id] * (max_len - sents_len[i])
         sent_ids.append(sent_id)
-    sent_ids = np.transpose(np.array(sent_ids, dtype=np.int64))
+    if not batch_first:
+        sent_ids = np.transpose(np.array(sent_ids, dtype=np.int64))
+    else:
+        sent_ids = np.array(sent_ids, dtype=np.int64)
     return torch.LongTensor(sent_ids), sents_len
 
-def get_test_batch_new(questions_dict, batch, vocab, random_flip=False):
+def get_test_batch_new(questions_dict, batch, vocab, random_flip=False, batch_first=False):
     # for test set
     # batch is a np.array of [label, q1, q2]
     batch_size = len(batch)
@@ -169,7 +174,7 @@ def get_test_batch_new(questions_dict, batch, vocab, random_flip=False):
     q1_keys_batch = batch[:,0]
     q2_keys_batch = batch[:,1]
 
-    q1_batch, q1_len = _get_sents_ids(q1_keys_batch, questions_dict, vocab)
-    q2_batch, q2_len = _get_sents_ids(q2_keys_batch, questions_dict, vocab)
+    q1_batch, q1_len = _get_sents_ids(q1_keys_batch, questions_dict, vocab, batch_first=batch_first)
+    q2_batch, q2_len = _get_sents_ids(q2_keys_batch, questions_dict, vocab, batch_first=batch_first)
 
     return q1_batch, q1_len, q2_batch, q2_len

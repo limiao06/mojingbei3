@@ -18,7 +18,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 
-from data import get_data, get_batch, get_embeddings
+from data import get_data, get_batch_new, get_word_vec
 from mutils import get_optimizer
 from DecAtt import DecAtt
 
@@ -31,7 +31,7 @@ parser.add_argument("--save_path", type=str, default='savedir/model.pickle')
 
 # training
 parser.add_argument("--n_epochs", type=int, default=20)
-parser.add_argument("--batch_size", type=int, default=512)
+parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--optimizer", type=str, default="adam", help="adam or sgd,lr=0.1")
 parser.add_argument("--lrshrink", type=float, default=5, help="shrink factor for sgd")
 parser.add_argument("--decay", type=float, default=0.99, help="lr decay")
@@ -76,7 +76,7 @@ torch.cuda.manual_seed(params.seed)
 DATA
 """
 questions_dict, train, dev, test = get_data(params.datapath)
-word_vec = get_embeddings(WORD_EMBEDDING_PATH)
+vocab, weight = get_word_vec(WORD_EMBEDDING_PATH)
 
 dev = dev.values
 
@@ -96,9 +96,9 @@ MODEL
 """
 # model config
 config_mojing_model = {
-    'n_words'        :  len(word_vec)          ,
+    'n_words'        :  len(vocab)          ,
     'word_emb_dim'   :  params.word_emb_dim   ,
-    'dpout_fc'       :  params.dpout_fc       ,
+    #'dpout_fc'       :  params.dpout_fc       ,
     'fc_dim'         :  params.fc_dim         ,
     'bsize'          :  params.batch_size     ,
     #'n_classes'      :  params.n_classes      ,
@@ -108,7 +108,7 @@ config_mojing_model = {
 
 # model
 
-mojing_net = DecAtt(num_units, embedding_size, project_input=True, use_intra_attention=False)
+mojing_net = DecAtt(len(vocab), params.fc_dim, params.word_emb_dim, weight, project_input=True, use_intra_attention=False)
 print(mojing_net)
 
 # loss
@@ -120,6 +120,7 @@ loss_fn.size_average = False
 # optimizer
 optim_fn, optim_params = get_optimizer(params.optimizer)
 optimizer = optim_fn(mojing_net.parameters(), **optim_params)
+#optimizer = torch.optim.Adagrad(mojing_net.parameters(), lr=0.05, weight_decay=5e-5)
 
 # cuda by default
 mojing_net.cuda()
@@ -132,7 +133,6 @@ TRAIN
 val_acc_best = -1e10
 adam_stop = False
 stop_training = False
-lr = optim_params['lr'] if 'sgd' in params.optimizer else None
 
 
 def trainepoch(epoch):
@@ -150,20 +150,20 @@ def trainepoch(epoch):
 
     train_perm = train.iloc[permutation].values
 
-    optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] * params.decay if epoch>1\
-        and 'sgd' in params.optimizer else optimizer.param_groups[0]['lr']
-    print('Learning rate : {0}'.format(optimizer.param_groups[0]['lr']))
+    #optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] * params.decay if epoch>1\
+    #    and 'sgd' in params.optimizer else optimizer.param_groups[0]['lr']
+    #print('Learning rate : {0}'.format(optimizer.param_groups[0]['lr']))
 
     for stidx in range(0, len(train), params.batch_size):
         # prepare batch
-        label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
-            train_perm[stidx:stidx + params.batch_size], word_vec, feature=params.feature)
+        label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch_new(questions_dict, 
+            train_perm[stidx:stidx + params.batch_size], vocab, batch_first=True)
 
         q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
         tgt_batch = Variable(torch.FloatTensor(label_batch)).cuda()
+        #print q1_batch.size()[0]
 
-
-        k = q1_batch.size(1)  # actual batch size
+        k = q1_batch.size()[0]  # actual batch size
 
         # model forward
         output = mojing_net(q1_batch, q2_batch)
@@ -181,25 +181,48 @@ def trainepoch(epoch):
         # backward
         optimizer.zero_grad()
         loss.backward()
-
+        
+        grad_norm = 0.
+        #para_norm = 0.
+        for m in mojing_net.modules():
+            if isinstance(m, nn.Linear):
+                grad_norm += m.weight.grad.data.norm() ** 2
+                if m.bias is not None:
+                    grad_norm += m.bias.grad.data.norm() ** 2
+        grad_norm = grad_norm ** 0.5
+        try:
+            shrinkage = params.max_norm / grad_norm
+        except:
+            pass
+        if shrinkage < 1:
+            for m in mojing_net.modules():
+                if isinstance(m, nn.Linear):
+                    m.weight.grad.data = m.weight.grad.data * shrinkage
+                    if m.bias is not None:
+                        m.bias.grad.data = m.bias.grad.data * shrinkage
+        
+        """ 
         # gradient clipping (off by default)
         shrink_factor = 1
         total_norm = 0
-
+        
         for p in mojing_net.parameters():
             if p.requires_grad:
+                print p
                 p.grad.data.div_(k)  # divide by the actual batch size
                 total_norm += p.grad.data.norm() ** 2
         total_norm = np.sqrt(total_norm)
 
         if total_norm > params.max_norm:
             shrink_factor = params.max_norm / total_norm
+         
         current_lr = optimizer.param_groups[0]['lr'] # current lr (no external "lr", for adam)
         optimizer.param_groups[0]['lr'] = current_lr * shrink_factor # just for update
+        """
 
         # optimizer step
         optimizer.step()
-        optimizer.param_groups[0]['lr'] = current_lr
+        #optimizer.param_groups[0]['lr'] = current_lr
 
         if len(all_costs) == 100:
             logs.append('{0} ; loss {1} ; sentence/s {2} ; words/s {3} ; accuracy train : {4}'.format(
@@ -220,15 +243,15 @@ def trainepoch(epoch):
 def evaluate(epoch, final_eval=False):
     mojing_net.eval()
     correct = 0.
-    global val_acc_best, lr, stop_training, adam_stop
+    global val_acc_best, stop_training, adam_stop
 
     print('\nVALIDATION : Epoch {0}'.format(epoch))
 
     for i in range(0, len(dev), params.batch_size):
         # prepare batch
 
-        label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
-            dev[i:i + params.batch_size], word_vec, random_flip=False, feature=params.feature)
+        label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch_new(questions_dict, 
+            dev[i:i + params.batch_size], vocab, random_flip=False, batch_first=True)
 
         q1_batch, q2_batch = Variable(q1_batch).cuda(), Variable(q2_batch).cuda()
         tgt_batch = Variable(torch.FloatTensor(label_batch)).cuda()
@@ -253,17 +276,9 @@ def evaluate(epoch, final_eval=False):
             torch.save(mojing_net, params.save_path)
             val_acc_best = eval_acc
         else:
-            if 'sgd' in params.optimizer:
-                optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / params.lrshrink
-                print('Shrinking lr by : {0}. New lr = {1}'
-                      .format(params.lrshrink,
-                              optimizer.param_groups[0]['lr']))
-                if optimizer.param_groups[0]['lr'] < params.minlr:
-                    stop_training = True
-            if 'adam' in params.optimizer:
-                # early stopping (at 2nd decrease in accuracy)
-                stop_training = adam_stop
-                adam_stop = True
+            # early stopping (at 2nd decrease in accuracy)
+            stop_training = adam_stop
+            adam_stop = True
     return eval_acc
 
 
