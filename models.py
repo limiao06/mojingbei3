@@ -316,10 +316,11 @@ class BLSTMprojEncoder(nn.Module):
         self.enc_lstm_dim = config['enc_lstm_dim']
         self.pool_type = config['pool_type']
         self.dpout_model = config['dpout_model']
+        self.n_enc_layers = config['n_enc_layers']
 
-        self.enc_lstm = nn.LSTM(self.word_emb_dim, self.enc_lstm_dim, 1,
+        self.enc_lstm = nn.LSTM(self.word_emb_dim, self.enc_lstm_dim, self.n_enc_layers,
                                 bidirectional=True, dropout=self.dpout_model)
-        self.init_lstm = Variable(torch.FloatTensor(2, self.bsize,
+        self.init_lstm = Variable(torch.FloatTensor(2 * self.n_enc_layers, self.bsize,
                                   self.enc_lstm_dim).zero_()).cuda()
         self.proj_enc = nn.Linear(2*self.enc_lstm_dim, 2*self.enc_lstm_dim,
                                   bias=False)
@@ -332,7 +333,7 @@ class BLSTMprojEncoder(nn.Module):
         bsize = sent.size(1)
 
         self.init_lstm = self.init_lstm if bsize == self.init_lstm.size(1) else \
-                Variable(torch.FloatTensor(2, bsize, self.enc_lstm_dim).zero_()).cuda()
+                Variable(torch.FloatTensor(2 * self.n_enc_layers, bsize, self.enc_lstm_dim).zero_()).cuda()
 
         # Sort by length (keep idx)
         sent_len, idx_sort = np.sort(sent_len)[::-1], np.argsort(-sent_len)
