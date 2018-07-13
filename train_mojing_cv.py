@@ -40,6 +40,7 @@ parser.add_argument("--lrshrink", type=float, default=5, help="shrink factor for
 parser.add_argument("--decay", type=float, default=0.99, help="lr decay")
 parser.add_argument("--minlr", type=float, default=1e-5, help="minimum lr")
 parser.add_argument("--max_norm", type=float, default=5., help="max norm (grad clipping)")
+parser.add_argument("--expand_data", type=float, default=1, help="expand data or not")
 
 # model
 parser.add_argument("--encoder_type", type=str, default='BLSTMprojEncoder', help="see list of encoders")
@@ -189,8 +190,8 @@ def trainepoch(epoch, train, model, optimizer, loss_fn):
         optimizer.param_groups[0]['lr'] = current_lr
 
         if len(all_costs) == 100:
-            logs.append('{0} ; loss {1} ; sentence/s {2} ; words/s {3} ; accuracy train : {4}'.format(
-                            stidx, round(np.mean(all_costs), 4),
+            logs.append('{0} %; loss {1} ; sentence/s {2} ; words/s {3} ; accuracy train : {4}'.format(
+                            round(stidx * 100. / len(train), 4), round(np.mean(all_costs), 4),
                             int(len(all_costs) * params.batch_size / (time.time() - last_time)),
                             int(words_count * 1.0 / (time.time() - last_time)),
                             round(100.*correct/(stidx+k), 4)))
@@ -265,6 +266,12 @@ for cv in range(10):
     train_flag = np.ones(len(train), dtype=bool)
     train_flag[cv*n_part:cv*n_part+n_part] = False
     train_cv = train[train_flag].values
+    
+    if params.expand_data:
+        print "expand data ..."
+        same_data, not_same_data = expand_data(train_cv)
+
+
     dev_cv = train.iloc[cv*n_part:cv*n_part+n_part].values
 
     mojing_net = MoJingNet(config_mojing_model)
@@ -293,7 +300,13 @@ for cv in range(10):
 
     epoch = 1
     while not stop_training and epoch <= params.n_epochs:
-        train_acc = trainepoch(epoch, train_cv, mojing_net, optimizer, loss_fn)
+        # expand data
+        if params.expand_data:
+            choosen_not_same_data_index = np.random.choice(len(not_same_data), len(same_data), replace=False)
+            expand_train_cv = np.concatenate((same_data, not_same_data[choosen_not_same_data_index]), axis=0)
+            train_acc = trainepoch(epoch, expand_train_cv, mojing_net, optimizer, loss_fn)
+        else:
+            train_acc = trainepoch(epoch, train_cv, mojing_net, optimizer, loss_fn)
         eval_acc = evaluate(cv, epoch, dev_cv, mojing_net, optimizer, final_eval=False)
         epoch += 1
 
