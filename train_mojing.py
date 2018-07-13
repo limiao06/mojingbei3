@@ -18,7 +18,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 
-from data import get_data, get_batch, get_embeddings
+from data import get_data, get_batch, get_embeddings, expand_data
 from mutils import get_optimizer
 from models import MoJingNet
 
@@ -40,6 +40,7 @@ parser.add_argument("--lrshrink", type=float, default=5, help="shrink factor for
 parser.add_argument("--decay", type=float, default=0.99, help="lr decay")
 parser.add_argument("--minlr", type=float, default=1e-5, help="minimum lr")
 parser.add_argument("--max_norm", type=float, default=5., help="max norm (grad clipping)")
+parser.add_argument("--expand_data", type=float, default=1, help="expand data or not")
 
 # model
 parser.add_argument("--encoder_type", type=str, default='BLSTMprojEncoder', help="see list of encoders")
@@ -90,6 +91,12 @@ dev = train.iloc[-dev_size:]
 dev = dev.reset_index(drop=True)
 train = train.iloc[0:-dev_size]
 train = train.reset_index(drop=True)
+
+# expand data
+if params.expand_data:
+    print "expand data ..."
+    same_data, not_same_data = expand_data(train.values)
+
 dev = dev.values
 
 """
@@ -167,10 +174,15 @@ def trainepoch(epoch):
     last_time = time.time()
     correct = 0.
     # shuffle the data
-    # need to do here
-    permutation = np.random.permutation(len(train))
+    if params.expand_data:
+        choosen_not_same_data_index = np.random.choice(len(not_same_data), len(same_data), replace=False)
+        expand_train = np.concatenate((same_data, not_same_data[choosen_not_same_data_index]), axis=0)
 
-    train_perm = train.iloc[permutation].values
+        permutation = np.random.permutation(len(expand_train))
+        train_perm = expand_train[permutation]
+    else:
+        permutation = np.random.permutation(len(train))
+        train_perm = train.iloc[permutation].values
 
     optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] * params.decay if epoch>1\
         and 'sgd' in params.optimizer else optimizer.param_groups[0]['lr']

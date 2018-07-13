@@ -11,6 +11,99 @@ import pandas as pd
 import torch
 
 
+def expand_data(train):
+
+    sim_sets = []
+    reverse_dict = {}
+    already_known_num = 0
+
+    # get sim_sets
+    for label, q1, q2 in tqdm(train):
+        if label == 1:
+            if q1 in reverse_dict and q2 not in reverse_dict:
+                sim_set_id = reverse_dict[q1]
+                sim_sets[sim_set_id].append(q2)
+                reverse_dict[q2] = sim_set_id
+            elif q1 not in reverse_dict and q2 in reverse_dict:
+                sim_set_id = reverse_dict[q2]
+                sim_sets[sim_set_id].append(q1)
+                reverse_dict[q1] = sim_set_id
+            elif q1 in reverse_dict and q2 in reverse_dict:
+                sim_set_id1 = reverse_dict[q1]
+                sim_set_id2 = reverse_dict[q2]
+                if sim_set_id1 == sim_set_id2:
+                    #print "%s, %s: already know they are same!" %(q1, q2)
+                    already_known_num += 1
+                    continue
+                elif sim_set_id1 < sim_set_id2: # remove sim_set_id2
+                    for qid in sim_sets[sim_set_id2]:
+                        reverse_dict[qid] = sim_set_id1
+                    sim_sets[sim_set_id1].extend(sim_sets[sim_set_id2])
+                    sim_sets[sim_set_id2] = []
+                else: # remove sim_set_id1
+                    for qid in sim_sets[sim_set_id1]:
+                        reverse_dict[qid] = sim_set_id2
+                    sim_sets[sim_set_id2].extend(sim_sets[sim_set_id1])
+                    sim_sets[sim_set_id1] = []   
+                    
+            else: # q1 q2 both not in reverse_dict
+                sim_set_id = len(sim_sets)
+                reverse_dict[q1] = sim_set_id
+                reverse_dict[q2] = sim_set_id
+                sim_sets.append([q1,q2])
+
+    not_sim_set_dict = {}
+    already_known_notsim_num = 0
+
+    for label, q1, q2 in tqdm(train):
+        if label == 0:
+            if q1 not in reverse_dict:
+                reverse_dict[q1] = len(sim_sets)
+                sim_sets.append([q1])
+            
+            if q2 not in reverse_dict:
+                reverse_dict[q2] = len(sim_sets)
+                sim_sets.append([q2])
+                
+            sim_set_id1 = reverse_dict[q1]
+            sim_set_id2 = reverse_dict[q2]
+            
+            if sim_set_id1 < sim_set_id2:
+                tuple_key = (sim_set_id1, sim_set_id2)
+            else:
+                tuple_key = (sim_set_id2, sim_set_id1)
+                
+            if tuple_key not in not_sim_set_dict:
+                not_sim_set_dict[tuple_key] = 1
+            else:
+                #print "%s, %s: already know they are not same!" %(q1, q2)
+                already_known_notsim_num += 1
+
+
+    # get same data
+    same_data = []
+    # deal with same tuples
+    for sim_set in tqdm(sim_sets):
+        set_size = len(sim_set)
+        if set_size == 0: 
+            continue
+        for i in range(set_size):
+            for j in range(i+1, set_size):
+                same_data.append([1, sim_set[i], sim_set[j]] if sim_set[i] < sim_set[j]\
+                           else [1, sim_set[j], sim_set[i]])
+
+    # get not same data
+    not_same_data = []
+    # deal with not same tuples
+    for sim_set_id1, sim_set_id2 in tqdm(not_sim_set_dict.keys()):
+        for q1 in sim_sets[sim_set_id1]:
+            for q2 in sim_sets[sim_set_id2]:
+                not_same_data.append([0, q1, q2] if q1 < q2\
+                           else [0, q2, q1])
+
+    return (np.array(same_data, dtype=object), np.array(not_same_data, dtype=object))
+
+
 def get_embeddings(embeddings_path):
     embeddings = {}
     with open(embeddings_path) as f:
