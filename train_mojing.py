@@ -45,6 +45,7 @@ parser.add_argument("--expand_data", type=float, default=0, help="expand data or
 # model
 parser.add_argument("--encoder_type", type=str, default='BLSTMprojEncoder', help="see list of encoders")
 parser.add_argument("--enc_lstm_dim", type=int, default=512, help="encoder nhid dimension")
+parser.add_argument("--enc_lstm_dims", type=str, default="512,1024,2048", help="encoder nhid dimension")
 parser.add_argument("--n_enc_layers", type=int, default=1, help="encoder num layers")
 parser.add_argument("--fc_dim", type=int, default=256, help="nhid of fc layers")
 parser.add_argument("--n_classes", type=int, default=1, help="same or not")
@@ -109,15 +110,17 @@ for split in ['s1', 's2']:
 
 params.word_emb_dim = 300
 
+params.enc_lstm_dims = [int(d) for d in params.enc_lstm_dims.split(",")]
 
 """
 MODEL
 """
 # model config
 config_mojing_model = {
-    'n_words'        :  len(word_vec)          ,
+    'n_words'        :  len(word_vec)         ,
     'word_emb_dim'   :  params.word_emb_dim   ,
     'enc_lstm_dim'   :  params.enc_lstm_dim   ,
+    'enc_lstm_dims'  :  params.enc_lstm_dims  ,
     'n_enc_layers'   :  params.n_enc_layers   ,
     'dpout_model'    :  params.dpout_model    ,
     'dpout_fc'       :  params.dpout_fc       ,
@@ -134,7 +137,7 @@ config_mojing_model = {
 # model
 encoder_types = ['BLSTMEncoder', 'BLSTMprojEncoder', 'BGRUlastEncoder',
                  'InnerAttentionMILAEncoder', 'InnerAttentionYANGEncoder',
-                 'InnerAttentionNAACLEncoder', 'ConvNetEncoder', 'LSTMEncoder']
+                 'InnerAttentionNAACLEncoder', 'ConvNetEncoder', 'LSTMEncoder', 'StackBLSTMEncoder']
 assert params.encoder_type in encoder_types, "encoder_type must be in " + \
                                              str(encoder_types)
 mojing_net = MoJingNet(config_mojing_model)

@@ -16,6 +16,92 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 
+
+"""
+StackBLSTMEncoder
+"""
+
+
+class StackBLSTMEncoder(nn.Module):
+    def __init__(self, config):
+        super(StackBLSTMEncoder, self).__init__()
+        self.bsize = config['bsize']
+        self.word_emb_dim = config['word_emb_dim']
+        self.enc_lstm_dims = config['enc_lstm_dims']
+        self.pool_type = config['pool_type']
+        self.dpout_model = config['dpout_model']
+        self.n_enc_layers = config['n_enc_layers']
+
+        self.enc_lstm_1 = nn.LSTM(input_size=word_emb_dim, hidden_size=self.enc_lstm_dims[0],
+                            num_layers=1, bidirectional=True)
+
+        self.enc_lstm_2 = nn.LSTM(input_size=(word_emb_dim + self.enc_lstm_dims[0] * 2), hidden_size=self.enc_lstm_dims[1],
+                              num_layers=1, bidirectional=True)
+
+        self.enc_lstm_3 = nn.LSTM(input_size=(word_emb_dim + (self.enc_lstm_dims[0] + self.enc_lstm_dims[1]) * 2),
+            hidden_size=self.enc_lstm_dims[2], num_layers=1, bidirectional=True)
+
+        """
+        self.init_lstm = Variable(torch.FloatTensor(2 * self.n_enc_layers, self.bsize,
+                                  self.enc_lstm_dim).zero_()).cuda()
+        self.proj_enc = nn.Linear(2*self.enc_lstm_dim, 2*self.enc_lstm_dim,
+                                  bias=False)
+        """
+
+    def forward(self, sent_tuple):
+        # sent_len: [max_len, ..., min_len] (batch)
+        # sent: Variable(seqlen x batch x worddim)
+
+        sent, sent_len = sent_tuple
+        bsize = sent.size(1)
+
+        self.init_lstm_1 = Variable(torch.FloatTensor(2, bsize, self.enc_lstm_dims[0]).zero_()).cuda()
+        self.init_lstm_2 = Variable(torch.FloatTensor(2, bsize, self.enc_lstm_dims[1]).zero_()).cuda()
+        self.init_lstm_3 = Variable(torch.FloatTensor(2, bsize, self.enc_lstm_dims[2]).zero_()).cuda()
+
+        # Sort by length (keep idx)
+        sent_len, idx_sort = np.sort(sent_len)[::-1], np.argsort(-sent_len)
+        sent = sent.index_select(1, Variable(torch.cuda.LongTensor(idx_sort)))
+
+        # Handling padding in Recurrent Networks
+        sent_packed = nn.utils.rnn.pack_padded_sequence(sent, sent_len)
+
+        layer1_out = self.enc_lstm_1(sent_packed,
+                                    (self.init_lstm_1, self.init_lstm_1))[0]
+
+        layer2_in = torch.cat([sent_packed, layer1_out], dim=2)
+
+        layer2_out = self.enc_lstm_2(layer2_in,
+                                    (self.init_lstm_2, self.init_lstm_2))[0]
+
+        layer3_in = torch.cat([sent_packed, layer1_out, layer2_out], dim=2)
+
+        layer3_out = self.enc_lstm_3(layer3_in,
+                                    (self.init_lstm_3, self.init_lstm_3))[0]
+
+        # seqlen x batch x 2*nhid
+        sent_output = nn.utils.rnn.pad_packed_sequence(layer3_out)[0]
+
+        # Un-sort by length
+        idx_unsort = np.argsort(idx_sort)
+        sent_output = sent_output.index_select(1,
+                Variable(torch.cuda.LongTensor(idx_unsort)))
+
+        #sent_output = self.proj_enc(sent_output.view(-1,
+        #    2*self.enc_lstm_dim)).view(-1, bsize, 2*self.enc_lstm_dim)
+
+        # Pooling
+        if self.pool_type == "mean":
+            sent_len = Variable(torch.FloatTensor(sent_len)).unsqueeze(1).cuda()
+            emb = torch.sum(sent_output, 0).squeeze(0)
+            emb = emb / sent_len.expand_as(emb)
+        elif self.pool_type == "max":
+            emb = torch.max(sent_output, 0)[0].squeeze(0)
+
+        return emb
+
+
+
 """
 BLSTM (max/mean) encoder
 """
@@ -878,6 +964,7 @@ class MoJingNet(nn.Module):
         self.fc_dim = config['fc_dim']
         self.n_classes = 1
         self.enc_lstm_dim = config['enc_lstm_dim']
+        self.enc_lstm_dims = config['enc_lstm_dims']
         self.encoder_type = config['encoder_type']
         self.dpout_fc = config['dpout_fc']
 
@@ -887,6 +974,9 @@ class MoJingNet(nn.Module):
                         ["ConvNetEncoder", "InnerAttentionMILAEncoder"] else self.inputdim
         self.inputdim = self.inputdim/2 if self.encoder_type == "LSTMEncoder" \
                                         else self.inputdim
+
+        self.inputdim = 4*2*self.enc_lstm_dims[2] if self.encoder_type == "StackBLSTMEncoder"
+
         if self.nonlinear_fc:
             self.classifier = nn.Sequential(
                 nn.Dropout(p=self.dpout_fc),
