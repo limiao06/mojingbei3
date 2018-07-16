@@ -40,7 +40,7 @@ parser.add_argument("--lrshrink", type=float, default=5, help="shrink factor for
 parser.add_argument("--decay", type=float, default=0.99, help="lr decay")
 parser.add_argument("--minlr", type=float, default=1e-5, help="minimum lr")
 parser.add_argument("--max_norm", type=float, default=5., help="max norm (grad clipping)")
-parser.add_argument("--expand_data", type=float, default=1, help="expand data or not")
+parser.add_argument("--expand_data", type=float, default=0, help="expand data or not")
 
 # model
 parser.add_argument("--encoder_type", type=str, default='BLSTMprojEncoder', help="see list of encoders")
@@ -188,7 +188,7 @@ def trainepoch(epoch):
         and 'sgd' in params.optimizer else optimizer.param_groups[0]['lr']
     print('Learning rate : {0}'.format(optimizer.param_groups[0]['lr']))
 
-    for stidx in range(0, len(train), params.batch_size):
+    for stidx in range(0, len(train_perm), params.batch_size):
         # prepare batch
         label_batch, q1_batch, q1_len, q2_batch, q2_len = get_batch(questions_dict, 
             train_perm[stidx:stidx + params.batch_size], word_vec, feature=params.feature)
@@ -237,7 +237,7 @@ def trainepoch(epoch):
 
         if len(all_costs) == 100:
             logs.append('{0} ; loss {1} ; sentence/s {2} ; words/s {3} ; accuracy train : {4}'.format(
-                            stidx, round(np.mean(all_costs), 4),
+                            round(stidx * 1.0 / len(train_perm), 2), round(np.mean(all_costs), 4),
                             int(len(all_costs) * params.batch_size / (time.time() - last_time)),
                             int(words_count * 1.0 / (time.time() - last_time)),
                             round(100.*correct/(stidx+k), 4)))
@@ -245,7 +245,7 @@ def trainepoch(epoch):
             last_time = time.time()
             words_count = 0
             all_costs = []
-    train_acc = round(100 * correct/len(train), 4)
+    train_acc = round(100 * correct/len(train_perm), 4)
     print('results : epoch {0} ; mean accuracy train : {1}'
           .format(epoch, train_acc))
     return train_acc

@@ -9,10 +9,9 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-
+from tqdm import tqdm
 
 def expand_data(train):
-
     sim_sets = []
     reverse_dict = {}
     already_known_num = 0

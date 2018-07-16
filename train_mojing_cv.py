@@ -18,7 +18,7 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 
-from data import get_data, get_batch, get_embeddings
+from data import get_data, get_batch, get_embeddings, expand_data
 from mutils import get_optimizer
 from models import MoJingNet
 
@@ -40,7 +40,7 @@ parser.add_argument("--lrshrink", type=float, default=5, help="shrink factor for
 parser.add_argument("--decay", type=float, default=0.99, help="lr decay")
 parser.add_argument("--minlr", type=float, default=1e-5, help="minimum lr")
 parser.add_argument("--max_norm", type=float, default=5., help="max norm (grad clipping)")
-parser.add_argument("--expand_data", type=float, default=1, help="expand data or not")
+parser.add_argument("--expand_data", type=float, default=0, help="expand data or not")
 
 # model
 parser.add_argument("--encoder_type", type=str, default='BLSTMprojEncoder', help="see list of encoders")
