@@ -32,13 +32,13 @@ class StackBLSTMEncoder(nn.Module):
         self.dpout_model = config['dpout_model']
         self.n_enc_layers = config['n_enc_layers']
 
-        self.enc_lstm_1 = nn.LSTM(input_size=word_emb_dim, hidden_size=self.enc_lstm_dims[0],
+        self.enc_lstm_1 = nn.LSTM(input_size=self.word_emb_dim, hidden_size=self.enc_lstm_dims[0],
                             num_layers=1, bidirectional=True)
 
-        self.enc_lstm_2 = nn.LSTM(input_size=(word_emb_dim + self.enc_lstm_dims[0] * 2), hidden_size=self.enc_lstm_dims[1],
+        self.enc_lstm_2 = nn.LSTM(input_size=(self.word_emb_dim + self.enc_lstm_dims[0] * 2), hidden_size=self.enc_lstm_dims[1],
                               num_layers=1, bidirectional=True)
 
-        self.enc_lstm_3 = nn.LSTM(input_size=(word_emb_dim + (self.enc_lstm_dims[0] + self.enc_lstm_dims[1]) * 2),
+        self.enc_lstm_3 = nn.LSTM(input_size=(self.word_emb_dim + (self.enc_lstm_dims[0] + self.enc_lstm_dims[1]) * 2),
             hidden_size=self.enc_lstm_dims[2], num_layers=1, bidirectional=True)
 
         """
@@ -59,28 +59,28 @@ class StackBLSTMEncoder(nn.Module):
         self.init_lstm_2 = Variable(torch.FloatTensor(2, bsize, self.enc_lstm_dims[1]).zero_()).cuda()
         self.init_lstm_3 = Variable(torch.FloatTensor(2, bsize, self.enc_lstm_dims[2]).zero_()).cuda()
 
+        def auto_rnn_bilstm(lstm, init_state, seqs, lens):
+            seqs_packed = nn.utils.rnn.pack_padded_sequence(seqs, lens)
+            seqs_output = lstm(seqs_packed,
+                                    (init_state, init_state))[0]
+            seqs_output = nn.utils.rnn.pad_packed_sequence(seqs_output)[0]
+            return seqs_output
+
+
         # Sort by length (keep idx)
         sent_len, idx_sort = np.sort(sent_len)[::-1], np.argsort(-sent_len)
         sent = sent.index_select(1, Variable(torch.cuda.LongTensor(idx_sort)))
 
         # Handling padding in Recurrent Networks
-        sent_packed = nn.utils.rnn.pack_padded_sequence(sent, sent_len)
+        layer1_out = auto_rnn_bilstm(self.enc_lstm_1, self.init_lstm_1, sent, sent_len)
+        
+        layer2_in = torch.cat([sent, layer1_out], dim=2)
 
-        layer1_out = self.enc_lstm_1(sent_packed,
-                                    (self.init_lstm_1, self.init_lstm_1))[0]
+        layer2_out = auto_rnn_bilstm(self.enc_lstm_2, self.init_lstm_2, layer2_in, sent_len)
 
-        layer2_in = torch.cat([sent_packed, layer1_out], dim=2)
+        layer3_in = torch.cat([sent, layer1_out, layer2_out], dim=2)
 
-        layer2_out = self.enc_lstm_2(layer2_in,
-                                    (self.init_lstm_2, self.init_lstm_2))[0]
-
-        layer3_in = torch.cat([sent_packed, layer1_out, layer2_out], dim=2)
-
-        layer3_out = self.enc_lstm_3(layer3_in,
-                                    (self.init_lstm_3, self.init_lstm_3))[0]
-
-        # seqlen x batch x 2*nhid
-        sent_output = nn.utils.rnn.pad_packed_sequence(layer3_out)[0]
+        sent_output = auto_rnn_bilstm(self.enc_lstm_3, self.init_lstm_3, layer3_in, sent_len)
 
         # Un-sort by length
         idx_unsort = np.argsort(idx_sort)
@@ -975,7 +975,8 @@ class MoJingNet(nn.Module):
         self.inputdim = self.inputdim/2 if self.encoder_type == "LSTMEncoder" \
                                         else self.inputdim
 
-        self.inputdim = 4*2*self.enc_lstm_dims[2] if self.encoder_type == "StackBLSTMEncoder"
+        self.inputdim = 4*2*self.enc_lstm_dims[2] if self.encoder_type == "StackBLSTMEncoder" \
+                                        else self.inputdim
 
         if self.nonlinear_fc:
             self.classifier = nn.Sequential(
